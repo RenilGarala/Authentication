@@ -1,4 +1,4 @@
-import { response } from "express";
+import express from "express";
 import { User } from "../models/User.model.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -22,7 +22,7 @@ export const register = async (req, res) => {
       });
     }
 
-    const hashpassword = bcrypt.hash(password, 10);
+    const hashpassword = await bcrypt.hash(password, 10);
 
     //user detaile is ready to store data base
     user = {
@@ -32,7 +32,9 @@ export const register = async (req, res) => {
     };
 
     //create OTP using math function
-    const otp = Math.floor(Math.random() * 10000);
+    // const otp = Math.floor(Math.random() * 10000);
+    const otp = Math.floor(1000 + Math.random() * 9000);
+
 
     //create activaton token using jwt
     const activatonToken = jwt.sign(
@@ -43,12 +45,15 @@ export const register = async (req, res) => {
       process.env.ACTIVATION_SECRET,
       { expiresIn: "5m" }
     );
-    console.log("1");
+
+    console.log(activatonToken);
 
     const data = {
       name,
       otp,
     };
+
+    console.log(otp);
 
     return res.status(200).json({
       message: "OTP Send to Your Mail",
@@ -60,12 +65,49 @@ export const register = async (req, res) => {
   }
 };
 
-export const verify = async (req, res) => {
-  const { otp } = req.body;
+export const verifyUser = async (req, res) => {
+  const { otp, activationToken } = req.body;
 
-  return res.status(200).json({
-    message: "User verified",
-  });
+  if (!otp || !activationToken) {
+    return res.status(400).json({ 
+        message: "All credentials are required" 
+    });
+  }
+
+  try {
+    const act = process.env.ACTIVATION_SECRET;
+    console.log(act, otp, activationToken);
+
+    const verify = jwt.verify(activationToken, process.env.ACTIVATION_SECRET);
+
+    console.log("12");
+
+    if (!verify) {
+      return res.status(200).json({
+        message: "OTP expired",
+      });
+    }
+
+    if (verify.otp != otp) {
+      return res.status(200).json({
+        message: "Wrong OTP",
+      });
+    }
+
+    await User.create({
+      name: verify.user.name,
+      email: verify.user.email,
+      password: verify.user.password,
+    });
+
+    return res.status(200).json({
+      message: "User Registered Successfully ",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "User Varification Failed ",
+    });
+  }
 };
 
 export const login = async (req, res) => {
