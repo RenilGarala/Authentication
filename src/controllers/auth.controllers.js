@@ -75,21 +75,10 @@ export const verifyUser = async (req, res) => {
   }
 
   try {
-    const act = process.env.ACTIVATION_SECRET;
-    console.log(act, otp, activationToken);
-
     const verify = jwt.verify(activationToken, process.env.ACTIVATION_SECRET);
 
-    console.log("12");
-
-    if (!verify) {
-      return res.status(200).json({
-        message: "OTP expired",
-      });
-    }
-
     if (verify.otp != otp) {
-      return res.status(200).json({
+      return res.status(400).json({
         message: "Wrong OTP",
       });
     }
@@ -101,21 +90,62 @@ export const verifyUser = async (req, res) => {
     });
 
     return res.status(200).json({
-      message: "User Registered Successfully ",
+      message: "User Registered Successfully",
     });
   } catch (error) {
+    console.error("Verification Error: ", error);
     return res.status(500).json({
-      message: "User Varification Failed ",
+      message: "User Verification Failed. Token might be expired or invalid.",
     });
   }
 };
 
-export const login = async (req, res) => {
-  const { name } = req.body;
 
-  return res.status(200).json({
-    message: "Logging Successfully",
-  });
+export const login = async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({
+      message: "Email and Password are required",
+    });
+  }
+
+  try {
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(400).json({
+        message: "User Doesn't Exist",
+      });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(400).json({
+        message: "Incorrect Password",
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        userId: user._id,
+        email: user.email,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    return res.status(200).json({
+      message: "Login Successfully",
+      token: token,
+    });
+  } catch (error) {
+    console.error("Login Error: ", error);
+    return res.status(500).json({
+      message: "Login Failed",
+    });
+  }
 };
 
 export const logout = async (req, res) => {
