@@ -1,4 +1,3 @@
-import express from "express";
 import { User } from "../models/User.model.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -100,7 +99,6 @@ export const verifyUser = async (req, res) => {
   }
 };
 
-
 export const login = async (req, res) => {
   const { email, password } = req.body;
 
@@ -149,7 +147,15 @@ export const login = async (req, res) => {
 };
 
 export const logout = async (req, res) => {
-  return res.status(200).json({
-    message: "Logout Successfully",
-  });
+  try {
+    res.cookie('authToken', '', { expires: new Date(0), httpOnly: true });
+
+    return res.status(200).json({
+      message: "Logout Successful",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to log out",
+    });
+  }
 };
